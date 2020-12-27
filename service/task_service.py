@@ -1,11 +1,9 @@
 import json
 from datetime import datetime
 from typing import List, Optional
-
 from client import Client
-from service import Service
-
-from task import TaskStatus, Task
+from service.service import Service
+from model.task import TaskStatus, Task
 
 DATE_FORMAT = '%Y-%m-%dT%H:%M:%S.%f%z'
 
