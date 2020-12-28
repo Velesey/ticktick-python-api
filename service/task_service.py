@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from client import Client
 from service.service import Service
@@ -35,10 +35,10 @@ class TaskService(Service):
         return result
 
     def add(self, project_id: str, title: str, content: str, start_date: Optional[datetime],
-            due_date: Optional[datetime], priority: Optional[int]) -> bool:
+            due_date: Optional[datetime], all_day: Optional[bool], priority: Optional[int]) -> bool:
 
-        task = Task("0", project_id, title, content, start_date, due_date, TaskStatus.ACTIVE,
-                    priority, None, None, None)
+        task = Task("0", project_id, title, content, start_date, due_date,
+                    all_day if all_day is not None else False, TaskStatus.ACTIVE, priority)
         return self.add_many([task])
 
     def add_many(self, tasks: List[Task]) -> bool:
@@ -54,13 +54,10 @@ class TaskService(Service):
             if t.priority is not None:
                 b.update({"priority": t.priority})
             if t.start_date is not None:
-                b.update({"startDate": self._parse_datetime(t.start_date)})
-                if t.start_date.hour != 0 and t.start_date.minute != 0:
-                    b.update({"isAllDay": False})
-                else:
-                    b.update({"isAllDay": True})
+                b.update({"startDate": self._parse_datetime(t.start_date.astimezone(timezone.utc))})
             if t.due_date is not None:
-                b.update({"dueDate": self._parse_datetime(t.due_date)})
+                b.update({"dueDate": self._parse_datetime(t.due_date.astimezone(timezone.utc))})
+            b.update({"isAllDay": t.is_all_day})
             addBody.append(b)
 
         body = json.dumps({'add': addBody})
@@ -83,14 +80,11 @@ class TaskService(Service):
             if t.priority is not None:
                 b.update({"priority": t.priority})
             if t.start_date is not None:
-                b.update({"startDate": self._parse_datetime(t.start_date)})
-                if t.start_date.hour != 0 and t.start_date.minute != 0:
-                    b.update({"isAllDay": False})
-            else:
-                b.update({"isAllDay": True})
+                b.update({"startDate": self._parse_datetime(t.start_date.astimezone(timezone.utc))})
             if t.due_date is not None:
-                b.update({"dueDate": self._parse_datetime(t.due_date)})
+                b.update({"dueDate": self._parse_datetime(t.due_date.astimezone(timezone.utc))})
             b.update({"status": t.status.value})
+            b.update({"isAllDay": t.is_all_day})
             updateBody.append(b)
 
         body = json.dumps({'update': updateBody})
@@ -98,7 +92,7 @@ class TaskService(Service):
         return self.check_authorization_and_reconnect('update_many', response, content)
 
     def delete(self, task_id: str, project_id: str) -> bool:
-        task = Task(task_id, project_id, None, None, None, None, None, None, None, None, None)
+        task = Task(task_id, project_id, "")
         return self.delete_many([task])
 
     def delete_many(self, tasks: List[Task]) -> bool:
